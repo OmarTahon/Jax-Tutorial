@@ -1,0 +1,168 @@
+\documentclass{beamer}
+
+% Theme selection
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% Packages
+\usepackage{listings} % For syntax highlighting of Python code
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+% Define Python code style for listings
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=none,                    
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle, language=Python}
+
+% Title page details
+\title{Introduction to JAX}
+\subtitle{A High-Performance Numerical Computing Library}
+\author{Based on learn-jax}
+\date{\today}
+
+\begin{document}
+
+% Title Slide
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% Outline Slide
+\begin{frame}{Outline}
+    \tableofcontents
+\end{frame}
+
+\section{What is JAX?}
+\begin{frame}{What is JAX?}
+    JAX is Autograd and XLA, brought together for high-performance machine learning research.
+    
+    \vspace{0.5cm}
+    \textbf{Core Features:}
+    \begin{itemize}
+        \item \textbf{NumPy Drop-in:} Provides a familiar \texttt{jax.numpy} API.
+        \item \textbf{Hardware Acceleration:} Native, seamless support for CPU, GPU, and TPU.
+        \item \textbf{Composable Transformations:} Powerful functions like \texttt{jit}, \texttt{vmap}, and \texttt{grad}.
+    \end{itemize}
+\end{frame}
+
+\section{Just-In-Time Compilation}
+\begin{frame}[fragile]{Transformation 1: \texttt{jax.jit}}
+    \textbf{Just-In-Time Compilation} compiles your Python code into optimized machine code using XLA (Accelerated Linear Algebra).
+
+    \vspace{0.3cm}
+    \begin{lstlisting}
+import jax.numpy as jnp
+from jax import jit
+
+def slow_f(x):
+    # Standard Python function
+    return jnp.dot(x, x.T)
+
+# Fast, compiled version
+fast_f = jit(slow_f)
+    \end{lstlisting}
+    
+    \vspace{0.3cm}
+    \textit{Benefit: Fuses operations, dramatically reducing memory overhead and execution time.}
+\end{frame}
+
+\section{Automatic Vectorization}
+\begin{frame}[fragile]{Transformation 2: \texttt{jax.vmap}}
+    \textbf{Automatic Vectorization} transforms a function that operates on a single data point into one that operates efficiently on batches of data.
+
+    \vspace{0.3cm}
+    \begin{lstlisting}
+from jax import vmap
+import jax.numpy as jnp
+
+# Function for a single example
+def predict(weights, inputs):
+    return jnp.dot(weights, inputs)
+
+# Vectorized to handle batches of inputs
+batch_predict = vmap(predict, in_axes=(None, 0))
+    \end{lstlisting}
+    
+    \vspace{0.3cm}
+    \textit{Benefit: Eliminates complex, slow manual batching loops while maintaining readability.}
+\end{frame}
+
+\section{Automatic Differentiation}
+\begin{frame}[fragile]{Transformation 3: \texttt{jax.grad}}
+    \textbf{Automatic Differentiation} computes the exact gradient (derivative) of a scalar-valued function automatically.
+
+    \vspace{0.3cm}
+    \begin{lstlisting}
+from jax import grad
+
+def f(x):
+    return 3 * x**2 + 2 * x + 1
+
+# df/dx = 6x + 2
+df_dx = grad(f)
+
+print(df_dx(2.0)) # Output: 14.0
+    \end{lstlisting}
+    
+    \vspace{0.3cm}
+    \textit{Benefit: Provides exact analytical derivatives without the need for manual calculus.}
+\end{frame}
+
+\section{Pytrees}
+\begin{frame}[fragile]{Working with Pytrees}
+    JAX treats nested Python structures (lists, tuples, dicts) as \textbf{Pytrees}. You can use \texttt{jax.tree\_map} to apply functions across these structures effortlessly.
+
+    \vspace{0.3cm}
+    \begin{lstlisting}
+from jax.tree_util import tree_map
+
+# A nested dictionary (Pytree)
+params = {'w': [1.0, 2.0], 'b': 0.5}
+
+# Double everything in the dictionary
+doubled = tree_map(lambda x: x * 2, params)
+    \end{lstlisting}
+    
+    \vspace{0.3cm}
+    \textit{Benefit: Easily update complex model parameters without writing custom traversal code.}
+\end{frame}
+
+\section{Summary}
+\begin{frame}{Summary}
+    JAX gives you the power to write standard Python/NumPy code and instantly make it:
+    
+    \vspace{0.3cm}
+    \begin{enumerate}
+        \item \textbf{Fast} via \texttt{jax.jit}
+        \item \textbf{Batched} via \texttt{jax.vmap}
+        \item \textbf{Differentiable} via \texttt{jax.grad}
+    \end{enumerate}
+
+    \vspace{0.5cm}
+    \begin{center}
+        \Large \textbf{Thank You!}
+    \end{center}
+\end{frame}
+
+\end{document}
