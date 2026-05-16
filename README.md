@@ -1,5 +1,9 @@
 # Introduction to JAX: Lab Manual
 
+**Author:** Omar Tahon  
+**ID:** 022025001  
+**Course:** CSE521: Embedded Machine Learning
+
 Welcome to the **Introduction to JAX** lab manual! This manual is designed to be a self-contained guide based on the foundational concepts of JAX. You will learn how to accelerate your numerical computing and machine learning workflows using JAX's core transformations.
 
 ## Table of Contents
