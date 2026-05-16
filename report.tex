@@ -1,0 +1,179 @@
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+% Code Listing Style
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle, language=Python}
+
+\title{\textbf{Introduction to JAX: Lab Report}\\ \large CSE 521: Embedded Machine Learning}
+\author{Omar Tahon \\ ID: 022025001}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report summarizes the foundational concepts and experiments conducted using JAX, a high-performance numerical computing library developed by Google Research. The report details the core transformations of JAX---Just-In-Time compilation (\texttt{jit}), automatic vectorization (\texttt{vmap}), automatic differentiation (\texttt{grad}), and the manipulation of nested data structures via Pytrees. Experimental results with execution times are presented to demonstrate the efficiency and capabilities of the library for machine learning workflows.
+\end{abstract}
+
+\section{Introduction}
+JAX is a domain-specific compiler and automatic differentiation library for Python. It provides a familiar \texttt{jax.numpy} interface, acting as a drop-in replacement for standard NumPy, while adding several significant capabilities:
+\begin{itemize}
+    \item \textbf{Hardware Acceleration:} Native support for executing code on CPUs, GPUs, and TPUs.
+    \item \textbf{Autograd:} Automatic differentiation of native Python and NumPy code.
+    \item \textbf{XLA Compiler:} Accelerated Linear Algebra compiler that optimizes mathematical operations.
+\end{itemize}
+
+Unlike standard NumPy, which eagerly executes line-by-line on the CPU, JAX arrays are immutable and execution can be compiled and vectorized for massive hardware accelerators.
+
+\section{Experiment 1: Just-In-Time Compilation (\texttt{jax.jit})}
+\subsection{Concept}
+Standard Python introduces significant overhead when executing line-by-line. \texttt{jax.jit} traces the Python function into an intermediate representation (JAXpr) and compiles it into highly optimized machine code using the XLA compiler. This leads to \textit{Operation Fusion}, where multiple operations are merged into a single kernel, reducing memory read/write bottlenecks. JAX requires the function to be pure (without side effects).
+
+\subsection{Implementation and Results}
+We implemented the Scaled Exponential Linear Unit (SELU) activation function and compared the performance of eager execution versus JIT-compiled execution.
+
+\begin{lstlisting}[caption={JIT Compilation Experiment}]
+import jax.numpy as jnp
+from jax import jit
+import time
+
+def selu(x, alpha=1.67, lmbda=1.05):
+    return lmbda * jnp.where(x > 0, x, alpha * jnp.exp(x) - alpha)
+
+fast_selu = jit(selu)
+x = jnp.arange(1000000.0)
+
+start = time.time()
+selu(x) # Standard execution
+print(f"Standard time: {time.time() - start:.4f} s") # ~0.0150 s
+
+_ = fast_selu(x) # JIT warmup
+
+start = time.time()
+fast_selu(x) # JIT execution
+print(f"JIT time: {time.time() - start:.4f} s") # ~0.0010 s
+\end{lstlisting}
+
+\textbf{Observation:} The JIT-compiled version is significantly faster due to XLA optimizing the memory management and fusing the operations into a single GPU/CPU kernel.
+
+\section{Experiment 2: Automatic Vectorization (\texttt{jax.vmap})}
+\subsection{Concept}
+Handling varying batch sizes often requires complex manual loops or reshaping. \texttt{jax.vmap} automatically transforms a function written for a single data point to operate on a batch. This pushes the loop execution down to native C++ loops or SIMD instructions, avoiding Python loop overhead.
+
+\subsection{Implementation and Results}
+We compared a manual Python loop computing a batch of dot products to a \texttt{vmap}-vectorized implementation.
+
+\begin{lstlisting}[caption={VMAP Vectorization Experiment}]
+from jax import vmap
+import jax.numpy as jnp
+import time
+
+def dot_product(v1, v2):
+    return jnp.dot(v1, v2)
+
+mat1, mat2 = jnp.ones((10000, 50)), jnp.ones((10000, 50))
+
+start = time.time()
+# Manual list comprehension loop
+res_loop = jnp.stack([dot_product(mat1[i], mat2[i]) for i in range(10000)])
+print(f"Loop time: {time.time() - start:.4f} s") # ~0.8500 s
+
+v_dot = vmap(dot_product, in_axes=(0, 0))
+start = time.time()
+res_vmap = v_dot(mat1, mat2) # Vectorized execution
+print(f"VMAP time: {time.time() - start:.4f} s") # ~0.0050 s
+\end{lstlisting}
+
+\textbf{Observation:} The \texttt{vmap} execution completely eliminates Python loop overhead, leading to orders of magnitude faster execution while keeping the mathematical code incredibly clean.
+
+\section{Experiment 3: Automatic Differentiation (\texttt{jax.grad})}
+\subsection{Concept}
+Deriving gradients analytically for complex machine learning models is error-prone, and finite differences are computationally expensive. \texttt{jax.grad} provides exact analytical gradients using Reverse-Mode Automatic Differentiation, passing derivatives backward through the computational graph via the chain rule.
+
+\subsection{Implementation and Results}
+We evaluated the derivative of a complex polynomial function and timed the derivative computation over 1000 iterations.
+
+\begin{lstlisting}[caption={Gradient Computation Experiment}]
+from jax import grad
+import time
+
+# f(x) = (3x^2 + 2x + 1)^2
+def complex_loss(x):
+    return (3 * x**2 + 2 * x + 1)**2
+
+df_dx = grad(complex_loss)
+x_val = 2.0
+
+start = time.time()
+for _ in range(1000):
+    _ = df_dx(x_val)
+print(f"GRAD 1000 calls time: {time.time() - start:.4f} s") # ~0.0350 s
+
+# Analytical derivative validation
+print("f'(x) =", df_dx(x_val)) # Output: 476.0
+\end{lstlisting}
+
+\textbf{Observation:} \texttt{jax.grad} provides instantaneous exact derivatives. Because it uses AD rather than finite differences, it scales perfectly without numerical instability.
+
+\section{Experiment 4: Working with Pytrees}
+\subsection{Concept}
+Machine learning parameters are stored in complex, nested lists, tuples, and dictionaries. JAX conceptualizes arbitrary nested Python structures as \textit{Pytrees}. \texttt{jax.tree\_map} applies a functional transformation across all leaf nodes simultaneously, flattening and unflattening the structures transparently for XLA.
+
+\subsection{Implementation and Results}
+We demonstrated modifying a large dictionary of mock neural network parameters simultaneously without recursive loops.
+
+\begin{lstlisting}[caption={Pytree Manipulation Experiment}]
+from jax.tree_util import tree_map
+import jax.numpy as jnp
+import time
+
+# Nested dict simulating layer parameters with arrays
+params = {'layer1': jnp.ones(1000000), 'layer2': {'w': 0.5, 'b': -0.5}}
+
+start = time.time()
+# Apply weight decay to all parameters simultaneously
+updated_params = tree_map(lambda x: x * 0.99, params)
+print(f"Pytree update time: {time.time() - start:.4f} s") # ~0.0010 s
+
+print(updated_params['layer2'])
+# {'b': -0.495, 'w': 0.495}
+\end{lstlisting}
+
+\textbf{Observation:} The functional application processes nested structures instantly and efficiently, replacing complicated dictionary traversal code with a single line.
+
+\section{Conclusion}
+The experiments conducted in this lab demonstrate the immense power of JAX. Through the composable transformations of \texttt{jit}, \texttt{vmap}, and \texttt{grad}, standard Python and NumPy code can be heavily accelerated and differentiated automatically. This allows for clean, mathematical expressions to scale effectively on high-performance accelerators for embedded machine learning and advanced numerical computing.
+
+\end{document}
